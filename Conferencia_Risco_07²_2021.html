@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auditoria de Risco Arquivo 2021 - V5 Card</title>
+<style>
+/* 1. Estilos Gerais para Mobile First */
+body { font-family: Arial, sans-serif; margin: 0; background: #f0f2f5; padding: 10px; }
+h2 { text-align: center; color: #2c3e50; margin-top: 5px; }
+p.hint { text-align: center; font-size: 0.8em; color: #777; margin-bottom: 15px; }
+
+/* 2. Estilo do Card (Bloco) */
+#card-container {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    border-left: 5px solid #ccc; /* Linha lateral para cor de status */
+    transition: border-left 0.3s ease;
+}
+
+/* 3. Estilos de Gôndola/Status */
+.card-field-group {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.card-field-group div {
+    flex: 1;
+    margin: 0 5px;
+}
+.card-field-group label {
+    display: block;
+    font-size: 10px;
+    color: #333;
+    margin-bottom: 3px;
+    font-weight: bold;
+}
+input, select, textarea {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* 4. Estilos de Botões de Status (Grandes e de Clique Preciso) */
+.status-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 15px 0;
+}
+.status-buttons button {
+    padding: 12px 5px;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #ccc;
+    color: #333;
+    border: none;
+}
+/* Cores de Status */
+.status-buttons button.active, .status-buttons button:hover { opacity: 0.8; }
+.present-status.active { background: #28a745; color: white; }
+.partial-status.active { background: #ffc107; color: #333; }
+.missing-status.active { background: #dc3545; color: white; }
+.absent-status.active { background: #6c757d; color: white; }
+
+/* Linhas laterais do Card */
+.present { border-left-color: #28a745; }
+.partial { border-left-color: #ffc107; }
+.missing { border-left-color: #dc3545; }
+.absent { border-left-color: #6c757d; }
+
+/* 5. Navegação */
+#nav-bar, #footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+#nav-bar button, #footer-actions button {
+    padding: 10px;
+    font-size: 16px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+    margin: 0 5px;
+}
+#nav-bar input {
+    flex: 2;
+    margin: 0 5px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* 6. Dashboard Resumo */
+#summary-section {
+    background: #ecf0f1;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 12px;
+    color: #2c3e50;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    text-align: center;
+}
+#summary-section div {
+    padding: 5px;
+    border: 1px solid #bdc3c7;
+    border-radius: 3px;
+}
+#summary-section strong { display: block; font-size: 14px; }
+
+/* 7. Footer e Botão Principal */
+#saveBtn { 
+    width: 100%; 
+    padding: 12px; 
+    margin: 10px 0; 
+    background: #e67e22; 
+    color: white; 
+    border: none; 
+    border-radius: 5px; 
+    font-size: 1em; 
+    font-weight: bold;
+}
+.cx-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+}
+.cx-header h3 { font-size: 20px; margin: 0; color: #3498db; }
+.cx-header span { font-size: 12px; color: #777; font-style: italic; }
+</style>
+</head>
+
+<body>
+
+<h2>Auditoria Operacional - Acervo 2021 (V5)</h2>
+
+<div id="summary-section">
+    <div>Total Caixas: <strong id="total-boxes">0</strong></div>
+    <div>% Presente: <strong id="percent-present">0%</strong></div>
+    <div>% Não Conf.: <strong id="percent-pending">0%</strong></div>
+    <div>Gôndolas c/ Falha: <strong id="gondola-failures">--</strong></div>
+</div>
+<button id="saveBtn" onclick="saveData()">BAIXAR RELATÓRIO CSV</button>
+
+<div id="nav-bar">
+    <button onclick="navigate(-1)">⬅️ Anterior</button>
+    <input type="text" id="search-box-input" placeholder="Buscar CX-001" onchange="searchBox(this.value)">
+    <button onclick="navigate(1)">Próxima ➡️</button>
+</div>
+
+<div id="card-container">
+    <p style="text-align:center; color:#555;">Carregando dados...</p>
+</div>
+
+<script>
+// --- DADOS BÁSICOS E CONFIGURAÇÕES ---
+// Lista de 217 dias úteis de 2021 (para atribuição inicial)
+const allDates = ["04/01/2021", "05/01/2021", "06/01/2021", "07/01/2021", "08/01/2021", "11/01/2021", "12/01/2021", "13/01/2021", "14/01/2021", "15/01/2021", "18/01/2021", "19/01/2021", "20/01/2021", "21/01/2021", "22/01/2021", "25/01/2021", "26/01/2021", "27/01/2021", "28/01/2021", "29/01/2021", "01/02/2021", "02/02/2021", "03/02/2021", "04/02/2021", "05/02/2021", "08/02/2021", "09/02/2021", "10/02/2021", "11/02/2021", "12/02/2021", "15/02/2021", "16/02/2021", "17/02/2021", "18/02/2021", "19/02/2021", "22/02/2021", "23/02/2021", "24/02/2021", "25/02/2021", "26/02/2021", "01/03/2021", "02/03/2021", "03/03/2021", "04/03/2021", "05/03/2021", "08/03/2021", "09/03/2021", "10/03/2021", "11/03/2021", "12/03/2021", "15/03/2021", "16/03/2021", "17/03/2021", "18/03/2021", "19/03/2021", "22/03/2021", "23/03/2021", "24/03/2021", "25/03/2021", "26/03/2021", "29/03/2021", "30/03/2021", "31/03/2021", "01/04/2021", "02/04/2021", "06/04/2021", "07/04/2021", "08/04/2021", "09/04/2021", "12/04/2021", "13/04/2021", "14/04/2021", "15/04/2021", "16/04/2021", "19/04/2021", "20/04/2021", "21/04/2021", "22/04/2021", "23/04/2021", "26/04/2021", "27/04/2021", "28/04/2021", "29/04/2021", "30/04/2021", "03/05/2021", "04/05/2021", "05/05/2021", "06/05/2021", "07/05/2021", "10/05/2021", "11/05/2021", "12/05/2021", "13/05/2021", "14/05/2021", "17/05/2021", "18/05/2021", "19/05/2021", "20/05/2021", "21/05/2021", "24/05/2021", "25/05/2021", "26/05/2021", "27/05/2021", "28/05/2021", "31/05/2021", "01/06/2021", "02/06/2021", "03/06/2021", "04/06/2021", "07/06/2021", "08/06/2021", "09/06/2021", "10/06/2021", "11/06/2021", "14/06/2021", "15/06/2021", "16/06/2021", "17/06/2021", "18/06/2021", "21/06/2021", "22/06/2021", "23/06/2021", "24/06/2021", "25/06/2021", "28/06/2021", "29/06/2021", "30/06/2021", "01/07/2021", "02/07/2021", "05/07/2021", "06/07/2021", "07/07/2021", "08/07/2021", "09/07/2021", "12/07/2021", "13/07/2021", "14/07/2021", "15/07/2021", "16/07/2021", "19/07/2021", "20/07/2021", "21/07/2021", "22/07/2021", "23/07/2021", "26/07/2021", "27/07/2021", "28/07/2021", "29/07/2021", "30/07/2021", "02/08/2021", "03/08/2021", "04/08/2021", "05/08/2021", "06/08/2021", "09/08/2021", "10/08/2021", "11/08/2021", "12/08/2021", "13/08/2021", "16/08/2021", "17/08/2021", "18/08/2021", "19/08/2021", "20/08/2021", "23/08/2021", "24/08/2021", "25/08/2021", "27/08/2021", "30/08/2021", "31/08/2021", "01/09/2021", "02/09/2021", "03/09/2021", "06/09/2021", "07/09/2021", "08/09/2021", "09/09/2021", "10/09/2021", "13/09/2021", "14/09/2021", "15/09/2021", "16/09/2021", "17/09/2021", "20/09/2021", "21/09/2021", "22/09/2021", "23/09/2021", "24/09/2021", "27/09/2021", "28/09/2021", "29/09/2021", "30/09/2021", "01/10/2021", "04/10/2021", "05/10/2021", "06/10/2021", "07/10/2021", "08/10/2021", "11/10/2021", "12/10/2021", "13/10/2021", "14/10/2021", "15/10/2021", "18/10/2021", "19/10/2021", "20/10/2021", "21/10/2021", "22/10/2021", "25/10/2021", "26/10/2021", "27/10/2021", "28/10/2021", "29/10/2021", "01/11/2021", "02/11/2021", "03/11/2021", "04/11/2021", "05/11/2021", "08/11/2021", "09/11/2021", "10/11/2021", "11/11/2021", "12/11/2021", "15/11/2021", "16/11/2021", "17/11/2021", "18/11/2021", "19/11/2021", "22/11/2021", "23/11/2021", "24/11/2021", "25/11/2021", "26/11/2021", "29/11/2021", "30/11/2021", "01/12/2021", "02/12/2021", "03/12/2021", "06/12/2021", "07/12/2021", "08/12/2021", "09/12/2021", "10/12/2021", "13/12/2021", "14/12/2021", "15/12/2021", "16/12/2021", "17/12/2021", "20/12/2021", "21/12/2021", "22/12/2021", "23/12/2021", "24/12/2021", "27/12/2021", "28/12/2021", "29/12/2021", "30/12/2021", "31/12/2021"];
+const totalCaixasEsperadas = 239;
+const caixas = [];
+
+// Opções de Governança
+const GONDOLAS = Array.from({length: 38}, (_, i) => String(i + 1).padStart(2, '0')); // 01 a 38
+const POSICOES = Array.from({length: 66}, (_, i) => String(i + 1).padStart(2, '0')); // 01 a 66 (Máx 66 posições)
+const QUANTIDADES = Array.from({length: 5}, (_, i) => i); // 0, 1, 2, 3, 4 (para Qtd Real)
+
+let currentIndex = 0;
+
+// --- FUNÇÕES DE INICIALIZAÇÃO E DADOS ---
+
+function generateCaixaData(count, dates) {
+    let dados = [];
+    let dateIndex = 0;
+    for (let i = 1; i <= count; i++) {
+        const currentDateIndex = dateIndex % dates.length;
+        dados.push({
+            id: `CX-${String(i).padStart(3, '0')}`,
+            date: dates[currentDateIndex],
+            qtdEsperada: 1, // Novo campo fixo para leitura
+            qtdReal: 1,     // Campo para input real
+            conjunta: "Não",
+            gondola: "-",   // Novo campo
+            posicao: "-",   // Novo campo
+            status: "Pendente",
+            espelho: "-",
+            estrutura: "-",
+            obs: "",
+            registro: "",
+            travado: false
+        });
+        dateIndex++;
+    }
+    return dados;
+}
+
+function saveLocal(){
+    localStorage.setItem("auditoria_v5",JSON.stringify(caixas));
+    updateSummary();
+}
+
+function loadLocal(){
+    const d = localStorage.getItem("auditoria_v5");
+    if(d) {
+        // Carrega dados e mapeia/padroniza para o novo formato V5 (Gondola/Posicao)
+        const savedData = JSON.parse(d);
+        savedData.forEach(item => {
+            // Migração de campos antigos
+            if (item.qtd && !item.qtdReal) item.qtdReal = item.qtd; // Migra V4 -> V5
+            if (item.gdlPos) { // Se ainda estiver usando o campo antigo
+                // Tenta inferir Gondola/Posicao se o formato antigo for "GDL 01/10º"
+                const parts = item.gdlPos.match(/(\d+)/g);
+                if (parts && parts.length >= 2) {
+                    item.gondola = parts[0].padStart(2, '0');
+                    item.posicao = parts[1].padStart(2, '0');
+                }
+            }
+            if (!item.gondola) item.gondola = "-";
+            if (!item.posicao) item.posicao = "-";
+            if (!item.qtdEsperada) item.qtdEsperada = 1;
+            if (typeof item.travado === 'undefined') item.travado = false;
+            
+            caixas.push(item);
+        });
+    } else {
+        caixas.push(...generateCaixaData(totalCaixasEsperadas, allDates));
+    }
+}
+
+// --- FUNÇÕES DE INTERFACE (CARD) ---
+
+function makeSelect(i, field, options, selected, disabled) {
+    const isSelected = (op) => (String(op) === String(selected) ? "selected" : "");
+    const selectOptions = options.map(op => `<option value="${op}" ${isSelected(op)}>${op}</option>`).join("");
+    return `
+        <select ${disabled ? "disabled" : ""} onchange="updateField(${i},'${field}',this.value)">
+            <option value="-">-</option>
+            ${selectOptions}
+        </select>
+    `;
+}
+
+function updateCardStyle(status) {
+    const card = document.getElementById('card-container');
+    card.className = '';
+    if(status === "Presente") card.classList.add("present");
+    else if(status === "Parcial") card.classList.add("partial");
+    else if(status === "Faltante") card.classList.add("missing");
+    else if(status === "Ausente") card.classList.add("absent");
+}
+
+function loadCard(index) {
+    if (index < 0 || index >= caixas.length) return;
+
+    currentIndex = index;
+    const cx = caixas[index];
+    const disabled = cx.travado;
+    const container = document.getElementById("card-container");
+    
+    document.getElementById("search-box-input").value = cx.id; // Atualiza a caixa de busca
+
+    updateCardStyle(cx.status);
+
+    const isConjuntaSim = cx.conjunta === "Sim";
+
+    container.innerHTML = `
+        <div class="cx-header">
+            <h3>${cx.id} (${index + 1}/${caixas.length})</h3>
+            <span>Data Esperada: ${cx.date}</span>
+        </div>
+
+        <div class="card-field-group">
+            <div>
+                <label>Qtd. Esperada:</label>
+                <input value="${cx.qtdEsperada}" disabled style="background:#eee; font-weight:bold;">
+            </div>
+            <div>
+                <label for="qtdReal">Qtd. Real:</label>
+                ${makeSelect(index, 'qtdReal', QUANTIDADES, cx.qtdReal, disabled)}
+            </div>
+        </div>
+
+        <div class="card-field-group">
+            <div>
+                <label for="gondola">Gôndola (1-${GONDOLAS.length}):</label>
+                ${makeSelect(index, 'gondola', GONDOLAS, cx.gondola, disabled)}
+            </div>
+            <div>
+                <label for="posicao">Posição (1-${POSICOES.length}):</label>
+                ${makeSelect(index, 'posicao', POSICOES, cx.posicao, disabled)}
+            </div>
+        </div>
+        
+        <div class="card-field-group" style="max-width: 50%; margin: 15px auto;">
+            <div>
+                <label for="conjunta">Caixa Conjunta?</label>
+                <select id="conjunta-${index}" ${disabled ? "disabled" : ""} onchange="updateField(${index},'conjunta',this.value)">
+                    <option value="Não" ${cx.conjunta=="Não"?"selected":""}>Não</option>
+                    <option value="Sim" ${cx.conjunta=="Sim"?"selected":""}>Sim</option>
+                </select>
+            </div>
+        </div>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+
+        <div class="card-field-group">
+            <div>
+                <label for="espelho">Espelho (A-D):</label>
+                ${makeSelect(index, 'espelho', ['A','B','C','D'], cx.espelho, disabled)}
+            </div>
+            <div>
+                <label for="estrutura">Caixa (1-4):</label>
+                ${makeSelect(index, 'estrutura', ['1','2','3','4'], cx.estrutura, disabled)}
+            </div>
+        </div>
+
+        <div class="status-buttons">
+            <button class="present-status ${cx.status === 'Presente' ? 'active' : ''}" ${disabled ? "disabled" : ""} onclick="updateField(${index}, 'status', 'Presente')">✅ Presente</button>
+            <button class="partial-status ${cx.status === 'Parcial' ? 'active' : ''}" ${disabled ? "disabled" : ""} onclick="updateField(${index}, 'status', 'Parcial')">⚠️ Parcial</button>
+            <button class="missing-status ${cx.status === 'Faltante' ? 'active' : ''}" ${disabled ? "disabled" : ""} onclick="updateField(${index}, 'status', 'Faltante')">❌ Faltante</button>
+            <button class="absent-status ${cx.status === 'Ausente' ? 'active' : ''}" ${disabled ? "disabled" : ""} onclick="updateField(${index}, 'status', 'Ausente')">🚫 Ausente</button>
+        </div>
+
+        <label for="obs">Observação (Opcional):</label>
+        <textarea id="obs-input" ${disabled ? "disabled" : ""} onchange="updateField(${index}, 'obs', this.value)" rows="2">${cx.obs}</textarea>
+        
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+
+        <div id="footer-actions">
+            <span style="font-size: 10px; color: #555;">Última alteração: ${cx.registro || 'Nunca'}</span>
+            ${cx.travado 
+                ? `<button style="background-color:#F0AD4E; flex: none; width: 40%;" onclick="travar(${index}, false)">🔓 Reabrir</button>`
+                : `<button style="background-color:#5CB85C; flex: none; width: 40%;" onclick="travar(${index}, true)">🔒 Finalizar</button>`
+            }
+        </div>
+    `;
+}
+
+// --- FUNÇÕES DE AÇÃO E VALIDAÇÃO ---
+
+function timestamp(i){
+    caixas[i].registro = new Date().toLocaleString("pt-BR", {hour12: false});
+}
+
+function updateField(i, field, val){
+    caixas[i][field] = val;
+    
+    // --- 4. QUANTIDADE POR DATA (VALIÇÃO INTELIGENTE) ---
+    if (field === 'qtdReal' || field === 'status' || field === 'conjunta') {
+        const cx = caixas[i];
+        const qtdReal = parseInt(cx.qtdReal);
+        const qtdEsperada = cx.qtdEsperada;
+        
+        // 1. Lógica de Conjunta
+        if (qtdReal > qtdEsperada && cx.conjunta === "Não") {
+             // Se for > 1, sugere/força Conjunta=Sim
+             caixas[i].conjunta = "Sim";
+             // Recarrega o card para atualizar o select "Conjunta"
+             loadCard(i); 
+        }
+
+        // 2. Lógica de Status (Prevenindo erro operacional)
+        if (field !== 'status') {
+            if (qtdReal > 0 && qtdReal < qtdEsperada) {
+                caixas[i].status = "Parcial";
+            } else if (qtdReal === 0) {
+                caixas[i].status = "Ausente";
+            } else if (qtdReal === qtdEsperada) {
+                // Se a quantidade bater, sugere Presente (se não for Conjunta)
+                if (cx.conjunta === "Não") {
+                    caixas[i].status = "Presente";
+                }
+            }
+        }
+    }
+    
+    timestamp(i);
+    saveLocal();
+    loadCard(i); // Recarrega o card para aplicar cores e travas
+}
+
+function travar(i, lock) {
+    caixas[i].travado = lock;
+    timestamp(i);
+    saveLocal(); 
+    loadCard(i);
+}
+
+// --- NAVEGAÇÃO E BUSCA ---
+
+function navigate(direction) {
+    let newIndex = currentIndex + direction;
+    if (newIndex >= 0 && newIndex < caixas.length) {
+        loadCard(newIndex);
+    } else {
+        alert("Fim da lista de caixas.");
+    }
+}
+
+function searchBox(searchId) {
+    const formattedId = searchId.toUpperCase().trim();
+    const foundIndex = caixas.findIndex(cx => cx.id === formattedId);
+    
+    if (foundIndex !== -1) {
+        loadCard(foundIndex);
+    } else {
+        alert(`Caixa "${formattedId}" não encontrada.`);
+        document.getElementById("search-box-input").value = caixas[currentIndex].id; // Retorna ao CX atual
+    }
+}
+
+// --- 5. VISÃO DE GESTOR (RESUMO) ---
+
+function updateSummary() {
+    const total = caixas.length;
+    let counts = {
+        Presente: 0,
+        Parcial: 0,
+        Faltante: 0,
+        Ausente: 0,
+        Pendente: 0
+    };
+    const gondolaStatus = {};
+
+    caixas.forEach(cx => {
+        counts[cx.status]++;
+        if (cx.status !== 'Presente' && cx.status !== 'Pendente' && cx.gondola !== '-') {
+             if (!gondolaStatus[cx.gondola]) gondolaStatus[cx.gondola] = 0;
+             gondolaStatus[cx.gondola]++;
+        }
+    });
+
+    const percentPresent = ((counts.Presente / total) * 100).toFixed(1);
+    const percentPending = ((counts.Pendente / total) * 100).toFixed(1);
+    
+    // Identificar Gôndola com mais falhas
+    let topFailureGondola = '--';
+    let maxFailures = 0;
+    for (const g in gondolaStatus) {
+        if (gondolaStatus[g] > maxFailures) {
+            maxFailures = gondolaStatus[g];
+            topFailureGondola = g;
+        }
+    }
+
+    document.getElementById('total-boxes').textContent = total;
+    document.getElementById('percent-present').textContent = `${percentPresent}%`;
+    document.getElementById('percent-pending').textContent = `${percentPending}%`;
+    document.getElementById('gondola-failures').textContent = topFailureGondola;
+}
+
+// --- EXPORTAÇÃO CSV (Adaptada para V5) ---
+
+function saveData(){
+    let csv="ID,Data_Esperada,Qtd_Esperada,Qtd_Real,Caixa_Conjunta,Gondola,Posicao,Espelho(A-D),Caixa(1-4),Status_Conferencia,Observacoes,Ultima_Alteracao\n";
+    caixas.forEach(cx=>{
+        // Garante que o texto de observações seja envolvido por aspas duplas
+        csv+=`${cx.id},${cx.date},${cx.qtdEsperada},${cx.qtdReal},${cx.conjunta},${cx.gondola},${cx.posicao},${cx.espelho},${cx.estrutura},${cx.status},"${cx.obs.replace(/"/g, '""')}","${cx.registro}"\n`;
+    });
+    
+    const link=document.createElement("a");
+    link.href="data:text/csv;charset=utf-8,"+encodeURI(csv);
+    link.download="Relatorio_Auditoria_2021_V5_Card.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    alert("Relatório CSV (V5) salvo com sucesso!");
+}
+
+// --- FLUXO PRINCIPAL ---
+loadLocal();
+loadCard(currentIndex);
+updateSummary();
+</script>
+
+</body>
+</html>
